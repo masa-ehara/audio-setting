@@ -72,7 +72,8 @@
           type: MESSAGE_TYPE,
           enabled: readBack,
           verifyResult: true,
-          verified: verified
+          verified: verified,
+          verifyReason: verified ? "OK" : "WRITE_MISMATCH"
         }, "*");
       }
 
