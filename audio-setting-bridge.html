@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audio Setting Bridge</title>
+</head>
+<body>
+<script>
+(function () {
+  // このHTMLは画面表示用ではありません。
+  // Google Sitesの各埋め込みHTMLから非表示iframeとして読み込まれ、
+  // 音声ON/OFF設定を同一GitHub Pages起点のブリッジ間で共有します。
+
+  const STORAGE_KEY = "wakuwaku_audio_enabled";
+  const MESSAGE_TYPE = "WAKUWAKU_AUDIO_SETTING";
+  const GET_TYPE = "WAKUWAKU_AUDIO_GET";
+  const CHANNEL_NAME = "wakuwaku_audio_setting_v1";
+
+  let enabled = true;
+  const channel = (typeof BroadcastChannel !== "undefined")
+    ? new BroadcastChannel(CHANNEL_NAME)
+    : null;
+
+  function readStored() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === null ? true : saved === "true";
+  }
+
+  function writeStored(value) {
+    enabled = Boolean(value);
+    localStorage.setItem(STORAGE_KEY, String(enabled));
+  }
+
+  function notifyParent(sourceWindow) {
+    if (sourceWindow) {
+      sourceWindow.postMessage({
+        type: MESSAGE_TYPE,
+        enabled: enabled
+      }, "*");
+    }
+  }
+
+  function broadcast() {
+    if (channel) {
+      channel.postMessage({
+        type: MESSAGE_TYPE,
+        enabled: enabled
+      });
+    }
+  }
+
+  enabled = readStored();
+
+  window.addEventListener("message", function (event) {
+    const data = event.data;
+    if (!data || typeof data !== "object") return;
+
+    if (data.type === GET_TYPE) {
+      notifyParent(event.source);
+      return;
+    }
+
+    if (data.type === MESSAGE_TYPE && typeof data.enabled === "boolean") {
+      writeStored(data.enabled);
+      notifyParent(event.source);
+      broadcast();
+    }
+  });
+
+  if (channel) {
+    channel.addEventListener("message", function (event) {
+      const data = event.data;
+      if (!data || data.type !== MESSAGE_TYPE || typeof data.enabled !== "boolean") {
+        return;
+      }
+
+      writeStored(data.enabled);
+      notifyParent(window.parent);
+    });
+  }
+
+  // 別ブリッジとのBroadcastChannel通信が使えない環境でも、
+  // localStorageを定期確認して設定変更を拾えるようにします。
+  setInterval(function () {
+    const current = readStored();
+    if (current !== enabled) {
+      enabled = current;
+      notifyParent(window.parent);
+    }
+  }, 500);
+})();
+</script>
+</body>
+</html>
