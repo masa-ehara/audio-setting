@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>音声設定</title>
+<style>
+  :root {
+    /* 音声コントロールの基準文字サイズ */
+    --font-size: 20px;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .audio-setting {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: #f5f5f5;
+    user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  }
+
+  .speaker-icon {
+    width: 54px;
+    height: 44px;
+    flex: 0 0 54px;
+    display: block;
+  }
+
+  .label {
+    font-size: var(--font-size);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /*
+    スイッチは固定pxではなく、文字サイズを基準にした em で設定。
+    20px のとき従来の 64×34px とほぼ同じ大きさになる。
+  */
+  .toggle {
+    position: relative;
+    font-size: var(--font-size);
+    width: 3.2em;
+    height: 1.7em;
+    border: none;
+    border-radius: 1.7em;
+    background: #999;
+    padding: 0;
+    cursor: pointer;
+    transition: background-color .2s ease;
+  }
+
+  .toggle-knob {
+    position: absolute;
+    top: 0.2em;
+    left: 0.2em;
+    width: 1.3em;
+    height: 1.3em;
+    border-radius: 50%;
+    background: white;
+    transition: left .2s ease;
+  }
+
+  .toggle.on {
+    background: #168df0;
+  }
+
+  .toggle.on .toggle-knob {
+    left: 1.7em;
+  }
+
+  .toggle.off {
+    background: #999;
+  }
+</style>
+</head>
+<body>
+
+<div class="audio-setting">
+  <svg id="speakerIcon" class="speaker-icon" viewBox="0 0 54 44"
+       xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M5 15h11l13-10v34L16 29H5z" fill="#333"/>
+    <path class="wave wave1" d="M35 14c4 4 4 12 0 16" fill="none" stroke="#333"
+          stroke-width="4" stroke-linecap="round"/>
+    <path class="wave wave2" d="M42 8c8 8 8 20 0 28" fill="none" stroke="#333"
+          stroke-width="4" stroke-linecap="round"/>
+  </svg>
+
+  <span class="label">音声</span>
+
+  <button id="audioToggle" class="toggle on"
+          type="button" aria-label="音声 ON/OFF"
+          aria-pressed="true">
+    <span class="toggle-knob"></span>
+  </button>
+</div>
+
+<script>
+(function () {
+  const STORAGE_KEY = "wakuwaku_audio_enabled";
+  const toggle = document.getElementById("audioToggle");
+  const icon = document.getElementById("speakerIcon");
+
+  function getEnabled() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === null ? true : saved === "true";
+  }
+
+  function setEnabled(enabled) {
+    localStorage.setItem(STORAGE_KEY, String(enabled));
+    render(enabled);
+
+    // Google Sites側のcommon-audio.jsへ通知
+    window.parent.postMessage({
+      type: "WAKUWAKU_AUDIO_SETTING",
+      enabled: enabled
+    }, "*");
+  }
+
+  function render(enabled) {
+    toggle.classList.toggle("on", enabled);
+    toggle.classList.toggle("off", !enabled);
+    toggle.setAttribute("aria-pressed", String(enabled));
+
+    // OFF時は音の波形を消し、スピーカー本体＋赤い×だけを表示
+    icon.querySelectorAll(".wave").forEach(function (wave) {
+      wave.style.display = enabled ? "" : "none";
+    });
+
+    // OFF時はスピーカーに赤い×
+    const oldX = icon.querySelector(".off-x");
+    if (oldX) oldX.remove();
+
+    if (!enabled) {
+      const ns = "http://www.w3.org/2000/svg";
+      const g = document.createElementNS(ns, "g");
+      g.setAttribute("class", "off-x");
+
+      /*
+        赤い×を波形部分の中央に配置。
+        従来より8px上へ移動し、縦方向の位置を調整。
+      */
+      const l1 = document.createElementNS(ns, "line");
+      l1.setAttribute("x1", "34");
+      l1.setAttribute("y1", "13");
+      l1.setAttribute("x2", "50");
+      l1.setAttribute("y2", "29");
+      l1.setAttribute("stroke", "#d22");
+      l1.setAttribute("stroke-width", "4");
+      l1.setAttribute("stroke-linecap", "round");
+
+      const l2 = document.createElementNS(ns, "line");
+      l2.setAttribute("x1", "50");
+      l2.setAttribute("y1", "13");
+      l2.setAttribute("x2", "34");
+      l2.setAttribute("y2", "29");
+      l2.setAttribute("stroke", "#d22");
+      l2.setAttribute("stroke-width", "4");
+      l2.setAttribute("stroke-linecap", "round");
+
+      g.appendChild(l1);
+      g.appendChild(l2);
+      icon.appendChild(g);
+    }
+  }
+
+  // 埋め込みHTMLが読み込まれたら、現在値をGoogle Sites側へ通知
+  const enabled = getEnabled();
+  render(enabled);
+  window.parent.postMessage({
+    type: "WAKUWAKU_AUDIO_SETTING",
+    enabled: enabled
+  }, "*");
+
+  toggle.addEventListener("click", function () {
+    setEnabled(!getEnabled());
+  });
+})();
+</script>
+</body>
+</html>
