@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Audio Setting Bridge v3</title>
+<title>Audio Setting Bridge</title>
 </head>
 <body>
 <script>
@@ -15,7 +15,7 @@
   const STORAGE_KEY = "wakuwaku_audio_enabled";
   const MESSAGE_TYPE = "WAKUWAKU_AUDIO_SETTING";
   const GET_TYPE = "WAKUWAKU_AUDIO_GET";
-  const CHANNEL_NAME = "wakuwaku_audio_setting_v3";
+  const CHANNEL_NAME = "wakuwaku_audio_setting_v1";
 
   let enabled = true;
   const channel = (typeof BroadcastChannel !== "undefined")
@@ -63,8 +63,22 @@
 
     if (data.type === MESSAGE_TYPE && typeof data.enabled === "boolean") {
       writeStored(data.enabled);
-      notifyParent(event.source);
-      broadcast();
+
+      const readBack = readStored();
+      const verified = (readBack === data.enabled);
+
+      if (event.source) {
+        event.source.postMessage({
+          type: MESSAGE_TYPE,
+          enabled: readBack,
+          verifyResult: true,
+          verified: verified
+        }, "*");
+      }
+
+      if (verified) {
+        broadcast();
+      }
     }
   });
 
